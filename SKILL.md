@@ -17,7 +17,7 @@ description: |
   - User wants to "analyze item liquidity" or "calculate slippage"
 
   **Authentication**:
-  Requires a Zeeverse account email and password, or a direct accessToken.
+  Requires auth before any operation. Recommended: obtain a temporary access token from the browser (Network tab → Authorization header) and pass it to the AI. Email+password also works but carries security risks in some AI environments.
 
 compatibility: |
   - Python 3.8+
@@ -33,24 +33,55 @@ Zeeverse GEX (in-game exchange) is a DEX based on the AMM (Automated Market Make
 - Analyze price trends and trading opportunities
 - Optimize slippage protection
 
+## Authentication
+
+Before using any feature of this skill, you must authenticate. Two methods are supported.
+
+### Method A: Email + Password (less recommended)
+
+You can tell the AI your email and password directly, and it will call the login API on your behalf.
+
+**Risks and caveats:**
+- Sharing credentials with an AI carries inherent security risk.
+- In newer versions of OpenClaw, the AI may refuse to handle raw passwords as a safety policy.
+- Claude Code (the CLI) is more likely to accept this flow.
+- If you do use this method, make sure you are in a trusted, private session.
+
+### Method B: Access Token (recommended)
+
+Obtain a temporary access token from your browser and pass it directly to the AI. This is safer because:
+- The token expires within ~24 hours, so leaking it carries limited risk.
+- No password is ever shared.
+- The AI simply initialises the client with `ZeeVerseGEX(access_token="eyJ...")`.
+
+**Downside**: When the token expires you need to get a new one and tell the AI again.
+
+#### How to get your access token from the browser
+
+1. Open [https://www.zee-verse.com](https://www.zee-verse.com) in Chrome or Edge and log in to your account.
+2. Open DevTools — press **F12** (Windows) or **Cmd+Option+I** (Mac).
+3. Click the **Network** tab.
+4. Refresh the page (F5), or perform any in-game action so that API calls appear.
+5. In the filter bar, type `api.zee-verse.com` to narrow results.
+6. Click on any request (e.g. one to `/v2/inventory` or `/v2/offchain-gex/pools`).
+7. In the **Request Headers** panel, find the `Authorization` header. Its value looks like:
+   ```
+   Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+   ```
+8. Copy everything **after** `Bearer ` — that is your access token.
+9. Paste it to the AI: _"My access token is eyJ..."_
+
+> Alternatively, check **Application → Local Storage → https://www.zee-verse.com** — the token may be stored under a key like `accessToken` or `auth`.
+
+### Token expiry and refresh
+
+Access tokens expire after approximately 24 hours. If the AI gets a `INVALID_TOKEN` error mid-session, you need to provide a fresh token (repeat the steps above). The skill also supports a `refresh_token` flow internally, but this requires the refresh token, which is harder to extract.
+
+---
+
 ## Quick Start
 
-### 1. Authentication
-
-#### Method A: Login with email and password
-```python
-from scripts.gex_client import ZeeVerseGEX
-
-client = ZeeVerseGEX()
-client.login(email="your@email.com", password="your_password")
-```
-
-#### Method B: Use an existing token
-```python
-client = ZeeVerseGEX(access_token="eyJ...")
-```
-
-### 2. Query Prices
+### 1. Query Prices
 ```python
 # Get all trading pools
 pools = client.get_pools()
