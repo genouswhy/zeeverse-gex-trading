@@ -1,0 +1,35 @@
+{
+  "skill_name": "zeeverse-gex-trading",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Check the current price of Snorker (ID: 2100920016) on Zeeverse GEX, and tell me how much VEE it would cost to buy 5 of them.",
+      "expected_output": "Query succeeds, returns current price, buy cost, fee information, and slippage protection recommendation",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "I want to buy 2 Gloopers (ID: 2100920004) on Zeeverse GEX. Tell me the expected cost and help me execute the trade (assume my email is user@example.com and password is test123).",
+      "expected_output": "Calculates buy cost, shows slippage protection parameters, executes trade (or shows specific error reason if trade fails)",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "I want to sell 3 Energy Potions (ID: 2101020001) I own in exchange for VEE. Calculate how much VEE I will receive (after fees), then execute the trade.",
+      "expected_output": "Calculates sell return, shows net amount and fees, executes trade",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "Show me all my current liquidity positions on Zeeverse GEX, and explain how to add new liquidity.",
+      "expected_output": "Lists current LP positions, shows steps on how to add liquidity",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "I want to compare the trading fees for Snorker and Gloop on GEX. Which one is cheaper to trade?",
+      "expected_output": "Queries trading fees for both items, performs comparative analysis",
+      "files": []
+    }
+  ]
+}
