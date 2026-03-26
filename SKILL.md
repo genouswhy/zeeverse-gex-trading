@@ -1,5 +1,6 @@
 ---
 name: zeeverse-gex-trading
+license: MIT
 description: |
   Zeeverse GEX in-game exchange: buy/sell items (Snorker, Glooper, potion, Energy Potion, pet, skin, ZEE, 道具/药水/装备), query prices, manage liquidity, view account/inventory. Use for ANY Zeeverse asset trade or price query. Token auto-loaded from .env.
 
@@ -7,6 +8,10 @@ compatibility: |
   - Python 3.8+
   - requests library
   - curl (optional)
+
+metadata:
+  author: yueyuer
+  version: "1.0.0"
 ---
 
 ## Overview
