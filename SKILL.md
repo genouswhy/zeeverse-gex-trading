@@ -1,23 +1,7 @@
 ---
 name: zeeverse-gex-trading
 description: |
-  Zeeverse GEX Trading Assistant — complete in-game trading, liquidity management, and price query functionality.
-
-  **Core Features**:
-  - 🏷️ Query item prices, pool status, and price charts
-  - 💱 Execute buy/sell trades (VEE <-> items)
-  - 💧 Manage liquidity (add/remove LP)
-  - 👛 View account info, item inventory, and VEE balance
-
-  **Use Cases**:
-  - User asks "what is the price of an item"
-  - User wants to "buy an item" or "sell an item"
-  - User needs to "provide liquidity" to earn fees
-  - User needs to "view price trends" or "recent trades"
-  - User wants to "analyze item liquidity" or "calculate slippage"
-
-  **Authentication**:
-  Requires auth before any operation. Recommended: obtain a temporary access token from the browser (Network tab → Authorization header) and pass it to the AI. Email+password also works but carries security risks in some AI environments.
+  Zeeverse GEX in-game exchange: buy/sell items (Snorker, Glooper, potion, Energy Potion, pet, skin, ZEE, 道具/药水/装备), query prices, manage liquidity, view account/inventory. Use for ANY Zeeverse asset trade or price query. Token auto-loaded from .env.
 
 compatibility: |
   - Python 3.8+
@@ -33,123 +17,79 @@ Zeeverse GEX (in-game exchange) is a DEX based on the AMM (Automated Market Make
 - Analyze price trends and trading opportunities
 - Optimize slippage protection
 
-## Authentication
-
-Before using any feature of this skill, you must authenticate. Two methods are supported.
-
-### Method A: Email + Password (less recommended)
-
-You can tell the AI your email and password directly, and it will call the login API on your behalf.
-
-**Risks and caveats:**
-- Sharing credentials with an AI carries inherent security risk.
-- In newer versions of OpenClaw, the AI may refuse to handle raw passwords as a safety policy.
-- Claude Code (the CLI) is more likely to accept this flow.
-- If you do use this method, make sure you are in a trusted, private session.
-
-### Method B: Access Token (recommended)
-
-Obtain a temporary access token from your browser and pass it directly to the AI. This is safer because:
-- The token expires within ~24 hours, so leaking it carries limited risk.
-- No password is ever shared.
-- The AI simply initialises the client with `ZeeVerseGEX(access_token="eyJ...")`.
-
-**Downside**: When the token expires you need to get a new one and tell the AI again.
-
-#### How to get your access token from the browser
-
-1. Open [https://www.zee-verse.com](https://www.zee-verse.com) in Chrome or Edge and log in to your account.
-2. Open DevTools — press **F12** (Windows) or **Cmd+Option+I** (Mac).
-3. Click the **Network** tab.
-4. Refresh the page (F5), or perform any in-game action so that API calls appear.
-5. In the filter bar, type `api.zee-verse.com` to narrow results.
-6. Click on any request (e.g. one to `/v2/inventory` or `/v2/offchain-gex/pools`).
-7. In the **Request Headers** panel, find the `Authorization` header. Its value looks like:
-   ```
-   Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-   ```
-8. Copy everything **after** `Bearer ` — that is your access token.
-9. Paste it to the AI: _"My access token is eyJ..."_
-
-> Alternatively, check **Application → Local Storage → https://www.zee-verse.com** — the token may be stored under a key like `accessToken` or `auth`.
-
-### Token expiry and refresh
-
-Access tokens expire after approximately 24 hours. If the AI gets a `INVALID_TOKEN` error mid-session, you need to provide a fresh token (repeat the steps above). The skill also supports a `refresh_token` flow internally, but this requires the refresh token, which is harder to extract.
-
----
-
 ## Quick Start
 
-### 1. Query Prices
-```python
-# Get all trading pools
-pools = client.get_pools()
+> **Always use the existing CLI scripts** (`scripts/` directory) to complete tasks. Do NOT rewrite scripts unless the user explicitly asks.
 
-# Query price for a specific item
-price = client.get_item_price(item_id="2100920016")  # Snorker
+### Authentication
 
-# View recent trades
-trades = client.get_recent_trades(item_id="2100920016")
+All scripts share the same auth priority:
+1. `--access-token eyJ...` → saves to `.env` automatically
+2. `.env` (ZEEVERSE_ACCESS_TOKEN) → used silently on every subsequent run
+3. `--email`/`--password` → login, then saves new token to `.env`
 
-# Get price chart (candlesticks)
-candles = client.get_candles(item_id="2100920016", interval="1h")
+**Only ask the user for credentials when `.env` token is missing or returns `INVALID_TOKEN`.**
+
+### 1. Query Price
+```bash
+# Uses .env token automatically (first run: add --access-token or --email/--password)
+cd scripts
+python quick_price.py --item-id 2100920016
+
+# With amount analysis
+python quick_price.py --item-id 2100920016 --amount 5
+
+# JSON output
+python quick_price.py --item-id 2100920016 --json
 ```
 
-### 3. Execute Trades
-```python
-# Buy item
-result = client.swap_vee_for_items(
-    item_id="2100920016",
-    item_amount=1.0,  # quantity to buy
-    max_vee_amount=2.6,  # max VEE to spend (slippage protection)
-)
+### 2. Execute Trades
+```bash
+cd scripts
 
-# Sell item
-result = client.swap_items_for_vee(
-    item_id="2100920016",
-    item_amount=1.0,  # quantity to sell
-    min_vee_amount=2.4,  # min VEE to receive (slippage protection)
-)
+# Buy — slippage auto-calculated at 3% if --max-vee omitted
+python execute_trade.py --action buy --item-id 2100920016 --amount 1.0
+
+# Buy with explicit max spend
+python execute_trade.py --action buy --item-id 2100920016 --amount 1.0 --max-vee 2.6
+
+# Sell — slippage auto-calculated at 3% if --min-vee omitted
+python execute_trade.py --action sell --item-id 2100920016 --amount 1.0
+
+# Skip confirmation prompt
+python execute_trade.py --action buy --item-id 2100920016 --amount 1.0 --skip-confirm
 ```
 
-### 4. Liquidity Management
-```python
-# View liquidity positions
-positions = client.get_liquidity_positions()
+### 3. Account Information
+```bash
+cd scripts
 
-# Preview adding liquidity
-quote = client.quote_add_liquidity(
-    item_id="2100920016",
-    item_amount=1.0
-)
-print(f"Required VEE: {quote['required_vee_amount']}")
-print(f"LP tokens to receive: {quote['lp_tokens_to_receive']}")
+# Show all (balance + inventory + LP positions)
+python account_info.py
 
-# Add liquidity
-result = client.add_liquidity(
-    item_id="2100920016",
-    item_amount=1.0,
-    max_vee_amount=2.6  # slippage protection
-)
-
-# Remove liquidity
-result = client.remove_liquidity(
-    item_id="2100920016",
-    lp_tokens=1.0
-)
+# Individual sections
+python account_info.py --balance
+python account_info.py --inventory
+python account_info.py --positions
 ```
 
-### 5. Account Information
+### 4. Liquidity Management (Python API)
+
+No dedicated CLI script — use `gex_client.py` directly:
 ```python
-# VEE balance
-balance = client.get_vee_balance()
+# Run from skill root
+import sys; sys.path.insert(0, "scripts")
+from gex_client import ZeeVerseGEX
+import os
 
-# Item inventory
-inventory = client.get_inventory()
+client = ZeeVerseGEX(access_token=os.environ.get("ZEEVERSE_ACCESS_TOKEN"))
 
-# VEE price (USD)
-vee_price = client.get_vee_price()
+# Preview
+quote = client.quote_add_liquidity(item_id="2100920016", item_amount=1.0)
+
+# Execute
+client.add_liquidity(item_id="2100920016", item_amount=1.0, max_vee_amount=2.6)
+client.remove_liquidity(item_id="2100920016", lp_tokens=1.0)
 ```
 
 ## API Reference

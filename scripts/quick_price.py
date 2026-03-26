@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 """
 Quick item price query script.
-One-shot query without saving token.
+Supports --access-token (saves to .env) or --email/--password.
+Subsequent runs auto-load token from .env.
 """
 
 import argparse
@@ -16,33 +17,95 @@ if sys.platform == 'win32':
     import io
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
+# .env path: one level up from this script (skill root)
+_ENV_PATH = os.path.join(os.path.dirname(__file__), "..", ".env")
+
+
+def _load_env():
+    """Load .env file into os.environ (only sets if not already set)."""
+    if os.path.exists(_ENV_PATH):
+        with open(_ENV_PATH) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    os.environ.setdefault(k.strip(), v.strip())
+
+
+def _save_token(token: str):
+    """Persist token to .env, replacing any existing ZEEVERSE_ACCESS_TOKEN line."""
+    lines = []
+    if os.path.exists(_ENV_PATH):
+        with open(_ENV_PATH) as f:
+            lines = [l for l in f if not l.startswith("ZEEVERSE_ACCESS_TOKEN=")]
+    lines.append(f"ZEEVERSE_ACCESS_TOKEN={token}\n")
+    with open(_ENV_PATH, "w") as f:
+        f.writelines(lines)
+    print("Token saved to .env", file=sys.stderr)
+
+
+def _build_client(args) -> ZeeVerseGEX:
+    """Resolve auth: --access-token > .env > --email/--password."""
+    client = ZeeVerseGEX()
+
+    token = getattr(args, "access_token", None)
+    if token:
+        client.access_token = token
+        client._update_headers()
+        _save_token(token)
+        return client
+
+    env_token = os.environ.get("ZEEVERSE_ACCESS_TOKEN")
+    if env_token:
+        print("Using token from .env", file=sys.stderr)
+        client.access_token = env_token
+        client._update_headers()
+        return client
+
+    email = getattr(args, "email", None)
+    password = getattr(args, "password", None)
+    if email and password:
+        print("Logging in... ", end="", file=sys.stderr)
+        result = client.login(email, password)
+        if not result["success"]:
+            print(f"❌ Login failed: {result['error']}", file=sys.stderr)
+            sys.exit(1)
+        print("✅", file=sys.stderr)
+        _save_token(client.access_token)
+        return client
+
+    print(
+        "❌ No auth provided. Use one of:\n"
+        "  --access-token eyJ...\n"
+        "  --email EMAIL --password PASSWORD\n"
+        "  (or set ZEEVERSE_ACCESS_TOKEN in .env)",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
 
 def main():
+    _load_env()
+
     parser = argparse.ArgumentParser(description="Quick query for Zeeverse item prices")
     parser.add_argument("--item-id", required=True, help="Item ID (e.g. 2100920016)")
-    parser.add_argument("--email", required=True, help="Zeeverse account email")
-    parser.add_argument("--password", required=True, help="Zeeverse account password")
+    parser.add_argument("--access-token", help="Zeeverse access token (saved to .env for reuse)")
+    parser.add_argument("--email", help="Zeeverse account email")
+    parser.add_argument("--password", help="Zeeverse account password")
     parser.add_argument("--amount", type=float, default=1.0, help="Quantity for cost analysis (default 1.0)")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
 
     args = parser.parse_args()
-
-    # Initialize client
-    client = ZeeVerseGEX()
-
-    # Login
-    print(f"Logging in... ", end="", file=sys.stderr)
-    login_result = client.login(args.email, args.password)
-    if not login_result["success"]:
-        print(f"❌ Login failed: {login_result['error']}", file=sys.stderr)
-        sys.exit(1)
-    print("✅", file=sys.stderr)
+    client = _build_client(args)
 
     # Get pool info
     print(f"Querying item {args.item_id}... ", end="", file=sys.stderr)
     pool_result = client.get_pool_info(args.item_id)
     if not pool_result["success"]:
-        print(f"❌ {pool_result['error']}", file=sys.stderr)
+        if pool_result.get("error_code") == "INVALID_TOKEN":
+            print(f"❌ Token expired. Re-run with --access-token eyJ...", file=sys.stderr)
+        else:
+            print(f"❌ {pool_result['error']}", file=sys.stderr)
         sys.exit(1)
     print("✅", file=sys.stderr)
 

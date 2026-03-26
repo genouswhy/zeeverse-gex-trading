@@ -45,9 +45,35 @@ Checks VEE balance, item inventory, and current LP positions.
 - Automated recurring trades (use a cron/loop skill for that)
 - On-chain wallet operations (GEX is off-chain)
 
+## Authentication
+
+**Must authenticate before any operation.** Two methods are supported:
+
+> **Recommended runtime: Claude Code (CLI).** Recent versions of OpenClaw have significantly strengthened safety guardrails — they will likely refuse to execute trades or handle credentials, leaving you with read-only price queries only. Claude Code does not have these restrictions and can run the full skill.
+
+**Method A — Email + Password** (less recommended): Tell the AI your email and password; it will call the login API for you. Risks: sharing credentials with an AI is inherently risky. Newer versions of OpenClaw will likely refuse to handle raw passwords as a safety policy. Claude Code (the CLI) is more likely to comply.
+
+**Method B — Access Token** (recommended): Obtain a temporary token from your browser and pass it to the AI. Safer because the token expires in ~24 hours, limiting leak exposure. Downside: you need to renew it each time it expires.
+
+**How to get your access token from the browser:**
+1. Open https://www.zee-verse.com and log in.
+2. Press **F12** (Windows) or **Cmd+Option+I** (Mac) to open DevTools.
+3. Click the **Network** tab, then refresh the page (F5).
+4. In the filter bar, type `api.zee-verse.com`.
+5. Click any request (e.g. `/v2/inventory` or `/v2/offchain-gex/pools`).
+6. In **Request Headers**, find the `Authorization` header: `Bearer eyJ...`
+7. Copy everything **after** `Bearer ` — that is your access token.
+8. Tell the AI: _"My access token is eyJ..."_
+
+> Alternative: **Application → Local Storage → https://www.zee-verse.com** — look for a key named `accessToken` or `auth`.
+
+Token expires after ~24 hours. If you see `INVALID_TOKEN`, extract a fresh token from the browser and provide it again.
+
+---
+
 ## Key behaviour
 
-**Authentication**: Ask for email + password if no token is available. Never store credentials.
+**Authentication**: Ask the user for a token or credentials if not already provided. Never store credentials.
 
 **Slippage protection**: Always calculate expected cost/return before executing a trade. Apply 3% buffer by default (`max_vee = cost × 1.03`, `min_vee = return × 0.97`). Show the user the numbers before submitting.
 
